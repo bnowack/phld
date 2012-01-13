@@ -21,7 +21,7 @@ class Node {
 		$this->id = $id;
 	}
 	
-	public static function create($id) {
+	public static function init($id) {
 		$className = get_class();
 		return new $className($id);
 	}
