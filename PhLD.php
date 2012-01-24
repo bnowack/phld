@@ -12,7 +12,7 @@ use \phweb\Exception as Exception;
 spl_autoload_register(array('phld\PhLD', 'autoload'), true, true);
 
 // Make sure the include directory is available.
-defined('PHLD_DIR') || define('PHLD_DIR', rtrim(dirname(__FILE__)) . '/');
+defined('PHLD_DIR') || define('PHLD_DIR', rtrim(realpath(dirname(__FILE__))) . '/');
 
 
 /**
@@ -42,30 +42,26 @@ class PhLD {
 	 */
 	public static function autoload($className) {
 		if (isset(self::$autoLoaded[$className])) return;
-		self::$autoLoaded[$className] = true;
 		$dirs = array(
-			preg_replace('/phld\/$/', '', PHLD_DIR),
 			PHLD_DIR,
 		);
 		if (defined('PHLD_INCLUDE_DIR')) {
 			$dirs[] = PHLD_INCLUDE_DIR;
 		}
-		foreach ($dirs as $rootDir) {
-			$path =	$rootDir . str_replace(array('\\', '_'), '/', $className) . '.php';
-			$path = str_replace('/phld/phld/', '/phld/', $path);
-			if (file_exists($path)) {
-				require($path);
-				break;
+		$classPath = str_replace(array('\\', '_'), '/', $className) . '.php';
+		$paths = array(
+			$classPath,
+			str_replace('phld/', '', $classPath),
+		);
+		foreach ($dirs as $dir) {
+			foreach ($paths as $path) {
+				if (file_exists("$dir$path")) {
+					require("$dir$path");
+					break;
+				}
 			}
 		}
-		if (!class_exists($className, false) && !interface_exists($className, false)) {
-			// don't log class auto-loading to avoid circular refs
-			if (preg_match('/Log$/', $className)) return;
-			PhWeb::log("Could not autoload '{$className}' ('{$path}') in PhLD. {$_SERVER['REQUEST_URI']}", 'autoload_info');
-		}
-		else {
-			PhWeb::log("Autoloaded '{$className}' ('{$path}') in PhLD.", 'autoload_info');
-		}
+		self::$autoLoaded[$className] = true;
 	}
 	
 	/**
