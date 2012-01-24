@@ -5,7 +5,7 @@ namespace phld\serializers;
 use \phld\PhLD as PhLD;
 
 /**
- * Serializer.
+ * Turtle Serializer.
  * 
  * @package PhLD
  * @author Benjamin Nowack <mail@bnowack.de> 
@@ -18,8 +18,8 @@ class TurtleSerializer extends Serializer {
 		$nodeTerm = $this->getResourceTerm($node->id);
 		$pad = str_pad('', strlen($nodeTerm), ' ', STR_PAD_LEFT);
 		
-		$propsResult = $this->serializeProps($node->id, $node->props, $pad);
-		$linksResult = $this->serializeLinks($node->id, $node->links, $pad);
+		$propsResult = $this->serializeProps($node, $pad);
+		$linksResult = $this->serializeLinks($node, $pad);
 		$connector = ($propsResult && $linksResult) ? ';' : ($propsResult ? '.' : '');
 		$result .= "$nodeTerm " .
 			trim($propsResult) .
@@ -33,54 +33,58 @@ class TurtleSerializer extends Serializer {
 		return "\n\n";
 	}
 	
-	public function serializeProps($nodeId, $props, $pad) {
+	public function serializeProps($node, $pad) {
 		$result = '';
-		foreach ($props as $prop => $values) {
+		$serializer = $this;
+		$node->each('props', function($label, $values) use (&$result, $serializer, $node, $pad) {
 			$result .= ($result ? " ;\n" : '') . "$pad ";
-			$result .= $this->serializeProp($nodeId, $prop, $values, $pad);
-		}
+			$result .= $serializer->serializeProp($node, $label, $values, $pad);
+		});
 		return $result;
 	}
 	
-	public function serializeProp($nodeId, $prop, $values, $pad) {
+	public function serializeProp($node, $label, $values, $pad) {
 		$result = '';
-		$propTerm = $this->getResourceTerm($prop);
-		$pad .= str_pad('', strlen($propTerm), ' ', STR_PAD_LEFT);
-		
+		$term = $this->getResourceTerm($label);
+		$pad .= str_pad('', strlen($term), ' ', STR_PAD_LEFT);
 		foreach ($values as $value) {
 			$result .= ($result ? " ,\n" : '') . "$pad ";
-			$result .= $this->serializePropValue($nodeId, $prop, $value);
+			$result .= $this->serializePropValue($node, $label, $value);
 		}
-		$result = trim($result);
-		return "$propTerm $result";
+		return "$term " . trim($result);
 	}
 	
-	public function serializeLinks($nodeId, $links, $pad) {
+	public function serializeLinks($node, $pad) {
 		$result = '';
-		foreach ($links as $link => $values) {
+		$serializer = $this;
+		$node->each('links', function($label, $values) use (&$result, $serializer, $node, $pad) {
 			$result .= ($result ? " ;\n" : '') . "$pad ";
-			$result .= $this->serializeLink($nodeId, $link, $values, $pad);
-		}
+			$result .= $serializer->serializeLink($node, $label, $values, $pad);
+		});
 		return $result;
 	}
 	
-	public function serializeLink($nodeId, $link, $values, $pad) {
+	public function serializeLink($node, $label, $values, $pad) {
 		$result = '';
-		$linkTerm = $this->getResourceTerm($link);
-		$pad .= str_pad('', strlen($linkTerm), ' ', STR_PAD_LEFT);
-		
+		$term = $this->getResourceTerm($label);
+		$pad .= str_pad('', strlen($term), ' ', STR_PAD_LEFT);
 		foreach ($values as $value) {
 			$result .= ($result ? " ,\n" : '') . "$pad ";
-			$result .= $this->serializeLinkValue($nodeId, $link, $value);
+			$result .= $this->serializeLinkValue($node, $label, $value);
 		}
-		$result = trim($result);
-		return "$linkTerm $result";
+		return "$term " . trim($result);
 	}
 	
-	public function serializeLinkValue($nodeId, $link, $value) {
-		return $this->getResourceTerm($value);
-	}
 
+	public function getValueTerm($node, $valueType, $label, $value) {
+		if ($valueType == 'link') {
+			return $this->getResourceTerm($value['value']);
+		}
+		else {// prop
+			return $this->getLiteralTerm($value['value'], $value['attrs']);
+		}
+	}
+	
 	public function getResourceTerm($id) {
 		// bnode
 		if (substr($id, 0, 2) == '_:') return $id;
@@ -88,7 +92,7 @@ class TurtleSerializer extends Serializer {
 		return "<$id>";
 	}
 	
-	public function getValueTerm($value, $attrs = null) {
+	public function getLiteralTerm($value, $attrs = array()) {
 		// detect the quotation marks
 		$qm = '"';
 		if (preg_match('/[^\x92]\"/', $value)) {
@@ -103,10 +107,10 @@ class TurtleSerializer extends Serializer {
 		}
 
 		$suffix = '';
-		if ($attrs && !empty($attrs['lang'])) {
+		if (!empty($attrs['lang'])) {
 			$suffix = "@{$attrs['lang']}";
 		}
-		if ($attrs && !empty($attrs['datatype'])) {
+		if (!empty($attrs['datatype'])) {
 			$suffix = "^^{$attrs['datatype']}";
 		}
 		return "{$qm}{$value}{$qm}{$suffix}";

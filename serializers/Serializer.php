@@ -24,8 +24,7 @@ class Serializer {
 		
 	public function serializeNode($node) {
 		$result = '';
-   		$result .= $this->serializeProps($node->id, $node->props);
-		$result .= $this->serializeLinks($node->id, $node->links);
+		$result .= $this->serializeElements($node);
 		return $this->getNodeHeader() . $result . $this->getNodeFooter();
 	}
 	
@@ -40,61 +39,55 @@ class Serializer {
 
 	public function getNodeFooter() {
 	}
+	
+	public function serializeElements($node) {
+		return $this->serializeProps($node) . $this->serializeLinks($node);
+	}
 
-	public function serializeProps($nodeId, $props) {
+	public function serializeProps($node) {
 		$result = '';
-		foreach ($props as $prop => $values) {
-			$result .= $this->serializeProp($nodeId, $prop, $values);
-		}
+		$serializer = $this;
+		$node->each('props', function($label, $values) use (&$result, $serializer, $node) {
+			$result .= $serializer->serializeProp($node, $label, $values);
+		});
 		return $result;
 	}
 	
-	public function serializeProp($nodeId, $prop, $values) {
+	public function serializeLinks($node) {
 		$result = '';
-		foreach ($values as $value) {
-			$result .= $this->serializePropValue($nodeId, $prop, $value);
-		}
+		$serializer = $this;
+		$node->each('links', function($label, $values) use (&$result, $serializer, $node) {
+			$result .= $serializer->serializeLink($node, $label, $values);
+		});
 		return $result;
 	}
 	
-	public function serializeLinks($nodeId, $links) {
-		$result = '';
-		foreach ($links as $link => $values) {
-			$result .= $this->serializeLink($nodeId, $link, $values);
-		}
-		return $result;
-	}
-	
-	public function serializeLink($nodeId, $link, $values) {
+	public function serializeProp($node, $label, $values) {
 		$result = '';
 		foreach ($values as $value) {
-			$result .= $this->serializeLinkValue($nodeId, $link, $value);
+			$result .= $this->serializePropValue($node, $label, $value);
 		}
 		return $result;
 	}
 	
-	public function serializePropValue($nodeId, $prop, $value) {
-		if (is_array($value)) {
-			return $this->serializeStructuredPropValue($nodeId, $prop, $value);
+	public function serializeLink($node, $label, $values) {
+		$result = '';
+		foreach ($values as $value) {
+			$result .= $this->serializeLinkValue($node, $label, $value);
 		}
-		return $this->serializeFlatPropValue($nodeId, $prop, $value)  ;
+		return $result;
 	}
 	
-	public function serializeStructuredPropValue($nodeId, $prop, $value) {
-		return $this->getValueTerm($value['value'], $value['attrs']);
+	public function serializePropValue($node, $label, $value) {
+		return $this->getValueTerm($node, 'prop', $label, $value);
 	}
-	
-	public function serializeFlatPropValue($nodeId, $prop, $value) {
-		return $this->getValueTerm($value);
+		
+	public function serializeLinkValue($node, $label, $value) {
+		return $this->getValueTerm($node, 'link', $label, $value);
 	}
-	
-	public function getValueTerm($value, $attrs = null) {
-		return "$nodeId	$link	$value";
+		
+	public function getValueTerm($node, $valueType, $label, $value) {
+		return "{$valueType}\t{$node->id}\t{$prop}\t{$value['value']}\t" . json_encode($value['attrs']);
 	}
-	
-	public function serializeLinkValue($nodeId, $link, $value) {
-		return $this->getValueTerm($value);
-	}
-	
 	
 }
