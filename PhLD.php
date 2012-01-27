@@ -53,13 +53,16 @@ class PhLD {
 			$classPath,
 			str_replace('phld/', '', $classPath),
 		);
+		$found = false;
 		foreach ($dirs as $dir) {
 			foreach ($paths as $path) {
 				if (file_exists("$dir$path")) {
 					require("$dir$path");
+					$found = 1;
 					break;
 				}
 			}
+			if ($found) break;
 		}
 		self::$autoLoaded[$className] = true;
 	}
